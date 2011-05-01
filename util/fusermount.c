@@ -135,8 +135,6 @@ static int may_unmount(const char *mnt, int quiet)
 	const char *mtab = _PATH_MOUNTED;
 
 	user = get_user_name();
-	if (user == NULL)
-		return -1;
 
 	fp = setmntent(mtab, "r");
 	if (fp == NULL) {
@@ -156,6 +154,7 @@ static int may_unmount(const char *mnt, int quiet)
 		     strncmp(entp->mnt_type, "fuseblk.", 8) == 0)) {
 			char *p = strstr(entp->mnt_opts, "user=");
 			if (p &&
+			    user &&
 			    (p == entp->mnt_opts || *(p-1) == ',') &&
 			    strcmp(p + 5, user) == 0) {
 				found = 1;
@@ -628,12 +627,18 @@ static int get_mnt_opts(int flags, char *opts, char **mnt_optsp)
 		(*mnt_optsp)[l-1] = '\0';
 	if (getuid() != 0) {
 		const char *user = get_user_name();
-		if (user == NULL)
-			return -1;
-
-		if (add_option(mnt_optsp, "user=", strlen(user)) == -1)
-			return -1;
-		strcat(*mnt_optsp, user);
+		if (user == NULL) {
+			char uidstr[32];
+			sprintf(uidstr, "%u", getuid());
+                        if (add_option(mnt_optsp, "user_id=", strlen(uidstr)) == -1)
+                                return -1;
+	                strcat(*mnt_optsp, uidstr);
+		}
+		else {
+			if (add_option(mnt_optsp, "user=", strlen(user)) == -1)
+				return -1;
+	                strcat(*mnt_optsp, user);
+		}
 	}
 	return 0;
 }
